@@ -82,6 +82,21 @@ class ProvidersConfig(Base):
     github_copilot: ProviderConfig = Field(default_factory=ProviderConfig, exclude=True)  # Github Copilot (OAuth)
 
 
+class GuardConfig(Base):
+    """Three-level security classification + cost-aware routing configuration."""
+
+    enabled: bool = False
+    # Security detection
+    extra_rules: list[dict] = Field(default_factory=list)  # {"pattern": "...", "level": "S2", "type": "..."}
+    local_detector_model: str = ""  # LLM for semantic detection; empty = rule-only
+    # Security routing
+    local_model: str = ""  # Model for S3 (private) data — never sent to cloud
+    # Cost-aware routing (applied after S1/S2 clearance)
+    cost_aware: bool = False
+    simple_model: str = ""   # Model for SIMPLE tasks (cheapest)
+    medium_model: str = ""   # Model for MEDIUM tasks
+
+
 class HeartbeatConfig(Base):
     """Heartbeat service configuration."""
 
@@ -134,11 +149,35 @@ class MCPServerConfig(Base):
     tool_timeout: int = 30  # seconds before a tool call is cancelled
     enabled_tools: list[str] = Field(default_factory=lambda: ["*"])  # Only register these tools; accepts raw MCP names or wrapped mcp_<server>_<tool> names; ["*"] = all tools; [] = no tools
 
+class BrowserConfig(Base):
+    """Browser automation configuration."""
+
+    enabled: bool = False
+    headless: bool = True
+    browser_type: Literal["chromium", "firefox", "webkit"] = "chromium"
+    viewport_width: int = 1280
+    viewport_height: int = 720
+    default_timeout: int = 30000
+    slow_mo: int = 0
+    screenshots_path: str = "~/workspace/screenshots"
+    downloads_path: str = "~/workspace/downloads"
+    docker_mode: bool = False
+    no_sandbox: bool = True
+    disable_dev_shm: bool = True
+    user_agent: str | None = None
+    locale: str = "en-US"
+    timezone: str = "America/New_York"
+    accept_downloads: bool = True
+    bypass_csp: bool = False
+    ignore_https_errors: bool = False
+
+
 class ToolsConfig(Base):
     """Tools configuration."""
 
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
+    browser: BrowserConfig = Field(default_factory=BrowserConfig)
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory
     mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
 
@@ -151,6 +190,7 @@ class Config(BaseSettings):
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    guard: GuardConfig = Field(default_factory=GuardConfig)
 
     @property
     def workspace_path(self) -> Path:
